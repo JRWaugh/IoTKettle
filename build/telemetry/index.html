@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Smart Kettle Telemetry</title>
+    <script src="openmct/dist/openmct.js"></script>
+    <script src="https://unpkg.com/mqtt@4.2.6/dist/mqtt.min.js" type="text/javascript"></script>
+    <script src="http.js"></script>
+</head>
+
+<body>
+    <script>
+        openmct.setAssetPath('openmct/dist');
+        openmct.install(openmct.plugins.LocalStorage());
+        openmct.install(openmct.plugins.Espresso());
+        openmct.install(openmct.plugins.UTCTimeSystem());
+        openmct.time.clock('local', { start: -15 * 60 * 1000, end: 0 });
+        openmct.time.timeSystem('utc');
+
+        const namespace = "taxonomy";
+        const telemetry_t = "telemetry";
+
+        let dictionary = {};
+        let root = {
+            identifier: {
+                namespace: namespace,
+                key: 'root'
+            },
+            name: "New Folder",
+            type: 'layout',
+            location: 'ROOT',
+            composition: [],
+            configuration: {
+                items: [],
+                layoutGrid: [
+                    10,
+                    10
+                ],
+                layoutDimensions: {}
+            }
+        };
+
+        const add_telemetry_point = (key) => {
+            const identifier = {
+                namespace: namespace,
+                key: key
+            };
+
+            dictionary[key] = {
+                identifier: identifier,
+                name: key,
+                type: telemetry_t,
+                telemetry: {
+                    values: [
+                        {
+                            key: "value",
+                            name: key,
+                            format: "float",
+                            hints: {
+                                "range": 1
+                            }
+                        },
+                        {
+                            key: "utc",
+                            source: "timestamp",
+                            name: "Timestamp",
+                            format: "utc",
+                            hints: {
+                                "domain": 1
+                            }
+                        }
+                    ]
+                },
+                location: namespace + ':' + root.identifier.key
+            };
+
+            root.configuration.items.push({
+                identifier: identifier,
+                x: 45 * (root.configuration.items.length % 3),
+                y: 27 * (root.configuration.items.length / 3 >> 0),
+                width: 42,
+                height: 24,
+                type: "subobject-view"
+            })
+        };
+
+        http.get('/telemetry/keys').then(resp => {
+            for (key of resp.data)
+                add_telemetry_point(key);
+            openmct.start(); // Ensure openmct starts only after we've grabbed any mqtt topics that might exist on the server already
+        });
+
+        const clientId = 'mqttjs_' + Math.random().toString(16).substr(2, 8);
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+            keepalive: 60,
+            clientId: clientId,
+            protocolId: 'MQTT',
+            protocolVersion: 4,
+            clean: true,
+            reconnectPeriod: 1000,
+            connectTimeout: 30 * 1000
+        })
+            .on('connect', () => {
+                console.log('Client connected:' + clientId)
+                client.subscribe('Kettle/#')
+            })
+            .on('message', (topic, message) => {
+                const index = topic.indexOf("/");
+                root.name = topic.substring(0, index);
+                const key = topic.substring(index + 1);
+
+                if (dictionary[key] === undefined)
+                    add_telemetry_point(key);
+
+                // If the telemetry provider has given us a listener, pass the new data to it. Otherwise try and refresh the page (not working nicely!)
+                if (dictionary[key].listener === undefined) {
+                    document.getElementsByClassName("c-icon-button l-shell__sync-tree-button icon-target")[0].click();
+                    setTimeout(() => document.getElementsByClassName("c-tree__item__view-control c-nav__down is-enabled")[0].click(), 500);
+                } else {
+                    dictionary[key].listener({ timestamp: Date.now(), value: parseFloat(message), id: key });
+                }
+            })
+            .on('reconnect', () => console.log('Reconnecting...'))
+            .on('error', err => {
+                console.log('Connection error: ', err)
+                client.end()
+            });
+
+        openmct.objects.addRoot(root.identifier);
+        openmct.objects.addProvider(namespace, {
+            get: identifier => (identifier.key === root.identifier.key) ? Promise.resolve(root) : Promise.resolve(dictionary[identifier.key])
+        });
+        openmct.composition.addProvider({
+            appliesTo: domainObject => domainObject.identifier === root.identifier,
+            load: domainObject => Promise.resolve(Object.keys(dictionary).map(key => dictionary[key].identifier))
+        });
+        openmct.telemetry.addProvider({
+            // Historical Telemetry
+            supportsRequest: domainObject => domainObject.type === telemetry_t,
+            request: (domainObject, options) => http.get('/telemetry/history/' + domainObject.identifier.key + '?start=' + options.start + '&end=' + options.end).then(resp => resp.data),
+            // Realtime Telemetry
+            supportsSubscribe: domainObject => domainObject.type === telemetry_t,
+            subscribe: (domainObject, callback) => {
+                dictionary[domainObject.identifier.key].listener = callback;
+                return () => delete dictionary[domainObject.identifier.key].listener;
+            }
+        });
+        openmct.types.addType(telemetry_t, {
+            name: 'Telemetry Point',
+            description: 'Telemetry Point.',
+            cssClass: 'icon-telemetry'
+        });
+    </script>
+</body>
+
+</html>
