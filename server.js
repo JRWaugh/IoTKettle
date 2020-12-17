@@ -1,4 +1,3 @@
-
 const path = require('path');
 const express = require('express');
 
@@ -11,6 +10,7 @@ let client = require('mqtt').connect('wss://broker.emqx.io:8084/mqtt')
       history[key] = [];
     history[key].push({ timestamp: Date.now(), value: parseFloat(message), id: key });
   });
+
 let history_router = express.Router();
 history_router.get('/:pointId', (req, res) => {
   const start = +req.query.start;

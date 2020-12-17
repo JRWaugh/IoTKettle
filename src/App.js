@@ -15,6 +15,7 @@ import graph from './Images/graph.png'
 import Dropdown from 'react-dropdown'
 import 'react-dropdown/style.css'
 
+const TO_KG = 10 * 10 * 4.44822 / 14000 / 9.81;
 const clientId = 'mqttjs_' + Math.random().toString(16).substr(2, 8);
 const client = require('mqtt').connect('wss://broker.emqx.io:8084/mqtt', {
   keepalive: 60,
@@ -56,20 +57,23 @@ const App = () => {
       }
     }
   };
+
   const startKettle = () => {
     if (state === 'On') {
       if (toTemp > temp && weight > 10) {
+        setState('Ready'); // Unsure 
         if (window.confirm("Are you sure you wish to heat the water to " + toTemp + "°C?")) {
           client.publish('Kettle/HeatTemp', toTemp.toString());
           client.publish('Kettle/Song', song.toString());
           console.log('song %d', song);
           console.log('Starting kettle');
-          setState('Ready'); // Unsure 
         }
       } else if (toTemp <= temp) {
         alert("The water temperature is currently higher than the temperature you wish to heat the water to!")
-      } else if (weight < 10) {
+      } else if (weight < 1430 && weight > 1275) {
         alert("There currently isn't enough water in the kettle to safely heat")
+      } else if (weight < 1260) {
+        alert("The kettle isn't on the base!")
       }
     } else if (state === 'Boiling') {
       alert("The kettle is already heating!");
@@ -84,8 +88,7 @@ const App = () => {
     const listener = (topic, message) => {
       switch (topic) {
         case 'Kettle/Connected':
-          const connected = (message.toString() === 'true');
-          if (connected) {
+          if (message == '1') {
             setState('On');
           } else {
             setState('Off');
@@ -93,7 +96,7 @@ const App = () => {
           break;
 
         case 'Kettle/State':
-          if (parseInt(message) === 1)
+          if (message === '1')
             setState('Boiling');
           else
             setState('On');
@@ -102,17 +105,17 @@ const App = () => {
         case 'Kettle/Temperature':
           const tempTemp = parseInt(message)
           if (tempTemp !== temp) {
+            console.log(`Kettle temp changed from ${temp} to ${tempTemp}`);
             setTemp(tempTemp);
-            console.log(`Kettle temp changed to ${tempTemp}`);
           }
           break;
 
         case 'Kettle/Weight':
           const tempWeight = parseInt(message)
-          const ldf = (tempWeight - 1000) * (15000 / 14000)
           if (tempWeight !== weight) {
-            setWeight(ldf);
-            console.log(`Kettle weight changed to ${ldf}`);
+            console.log(`Kettle weight changed from ${weight} to ${tempWeight}`);
+            console.log(`Newtons: ${(tempWeight - 1200) * 4.44822 / 1400}`);
+            setWeight(tempWeight);
           }
           break;
 
