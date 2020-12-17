@@ -14,6 +14,7 @@ import start from './Images/start.png'
 import graph from './Images/graph.png'
 import Dropdown from 'react-dropdown'
 import 'react-dropdown/style.css'
+require('events').EventEmitter.defaultMaxListeners = 0
 
 const clientId = 'mqttjs_' + Math.random().toString(16).substr(2, 8);
 const client = require('mqtt').connect('wss://broker.emqx.io:8084/mqtt', {
