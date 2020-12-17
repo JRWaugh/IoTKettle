@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import greenTea from './Images/green tea.png'
 import blackTea from './Images/black tea.png'
@@ -14,7 +14,6 @@ import start from './Images/start.png'
 import graph from './Images/graph.png'
 import Dropdown from 'react-dropdown'
 import 'react-dropdown/style.css'
-require('events').EventEmitter.defaultMaxListeners = 0
 
 const clientId = 'mqttjs_' + Math.random().toString(16).substr(2, 8);
 const client = require('mqtt').connect('wss://broker.emqx.io:8084/mqtt', {
@@ -73,7 +72,7 @@ const App = () => {
         alert("There currently isn't enough water in the kettle to safely heat")
       }
     } else if (state === 'Boiling') {
-        alert("The kettle is already heating!");
+      alert("The kettle is already heating!");
     } else if (state === 'Off') {
       alert("No connection");
     }
@@ -81,43 +80,52 @@ const App = () => {
 
   const songOptions = ['Default', 'FF Victory', 'Song of Time', 'Super Mario Theme'];
 
-  client.on('message', (topic, message) => {
-    switch (topic) {
-      case 'Kettle/Connected':
-        const connected = (message.toString() === 'true');
-        if (connected) {
-          setState('On');
-        } else {
-          setState('Off');
-        }
-        break;
+  useEffect(() => {
+    const listener = (topic, message) => {
+      switch (topic) {
+        case 'Kettle/Connected':
+          const connected = (message.toString() === 'true');
+          if (connected) {
+            setState('On');
+          } else {
+            setState('Off');
+          }
+          break;
 
-      case 'Kettle/State':
-        if (parseInt(message) === 1)
-          setState('Boiling');
-        else 
-          setState('On');
-        break;
+        case 'Kettle/State':
+          if (parseInt(message) === 1)
+            setState('Boiling');
+          else
+            setState('On');
+          break;
 
-      case 'Kettle/Temperature':
-        const tempTemp = parseInt(message)
-        if (tempTemp !== temp) {
-          setTemp(tempTemp);
-          console.log(`Kettle temp changed to ${tempTemp}`);
-        }
-        break;
+        case 'Kettle/Temperature':
+          const tempTemp = parseInt(message)
+          if (tempTemp !== temp) {
+            setTemp(tempTemp);
+            console.log(`Kettle temp changed to ${tempTemp}`);
+          }
+          break;
 
-      case 'Kettle/Weight':
-        const tempWeight = parseInt(message)
-        if (tempWeight !== weight) {
-          setWeight(tempWeight)
-          console.log(`Kettle weight changed to ${tempWeight}`);
-        }
-        break;
+        case 'Kettle/Weight':
+          const tempWeight = parseInt(message)
+          const ldf = (tempWeight - 1000) * (10 / 14000)
+          if (tempWeight !== weight) {
 
-      default:
-        console.log(`No handler for topic ${topic}`);
+            setWeight(ldf);
+            console.log(`Kettle weight changed to ${tempWeight}`);
+          }
+          break;
+
+        default:
+          console.log(`No handler for topic ${topic}`);
+      }
     }
+
+    client.on('message', listener);
+    return () => {
+      client.removeListener('message', listener);
+    };
   });
 
   return (
@@ -134,7 +142,7 @@ const App = () => {
       <Temperature text='Target Temp' value={toTemp} scale='°C' />
       <Water text='Water Level' value={weight} />
       <b>Choose Song: </b><br />
-      <Dropdown options={songOptions} onChange={option => setSong(songOptions.indexOf(option.value, 0))} value={songOptions[0]}/><br />
+      <Dropdown options={songOptions} onChange={option => setSong(songOptions.indexOf(option.value))} value={songOptions[0]} /><br />
       <Button text='Start' onClick={startKettle} image={start} />
       <p align="left">--Telemetry--<br />
         <a href='/telemetry' rel="noopener noreferrer" target="_blank"><img src={graph} alt="Telemetry" /></a></p>
