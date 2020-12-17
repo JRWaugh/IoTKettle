@@ -109,11 +109,10 @@ const App = () => {
 
         case 'Kettle/Weight':
           const tempWeight = parseInt(message)
-          const ldf = (tempWeight - 1000) * (10 / 14000)
+          const ldf = (tempWeight - 1000) * (15000 / 14000)
           if (tempWeight !== weight) {
-
             setWeight(ldf);
-            console.log(`Kettle weight changed to ${tempWeight}`);
+            console.log(`Kettle weight changed to ${ldf}`);
           }
           break;
 
