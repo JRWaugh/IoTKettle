@@ -122,19 +122,19 @@ const App = () => {
   return (
     <div className="App">
       <h1>IoT Kettle</h1>
-      <Button text='Green Tea' handleClick={() => setToTemp(80)} image={greenTea} />
-      <Button text='Black Tea' handleClick={() => setToTemp(100)} image={blackTea} />
-      <Button text='White Tea' handleClick={() => setToTemp(70)} image={whiteTea} />
-      <Button text='Oolong Tea' handleClick={() => setToTemp(85)} image={oolongTea} />
-      <Button text='Instant Coffee' handleClick={() => setToTemp(94)} image={coffeePic} />
-      <Button text='Set Temperature' handleClick={manualTemp} image={manual} />
-      <State text='Kettle state' value={state} />
-      <Temperature text='Current temp' value={temp} scale='°C' />
-      <Temperature text='Set temp' value={toTemp} scale='°C' />
+      <Button text='Green Tea' onClick={() => setToTemp(80)} image={greenTea} />
+      <Button text='Black Tea' onClick={() => setToTemp(100)} image={blackTea} />
+      <Button text='White Tea' onClick={() => setToTemp(70)} image={whiteTea} />
+      <Button text='Oolong Tea' onClick={() => setToTemp(85)} image={oolongTea} />
+      <Button text='Instant Coffee' onClick={() => setToTemp(94)} image={coffeePic} />
+      <Button text='Set Temperature' onClick={manualTemp} image={manual} />
+      <State text='Kettle State' value={state} />
+      <Temperature text='Current Temp' value={temp} scale='°C' />
+      <Temperature text='Target Temp' value={toTemp} scale='°C' />
       <Water text='Water Level' value={weight} />
-      <b>Choose song: </b><br />
-      <Dropdown options={songOptions} onChange={option => setSong(songOptions.indexOf(option.value, 0))} value={songOptions[0]} placeholder="Choose Song" /><br />
-      <Button text='Start' handleClick={startKettle} image={start} />
+      <b>Choose Song: </b><br />
+      <Dropdown options={songOptions} onChange={option => setSong(songOptions.indexOf(option.value, 0))} value={songOptions[0]}/><br />
+      <Button text='Start' onClick={startKettle} image={start} />
       <p align="left">--Telemetry--<br />
         <a href='/telemetry' rel="noopener noreferrer" target="_blank"><img src={graph} alt="Telemetry" /></a></p>
     </div>
